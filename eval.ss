@@ -24,9 +24,9 @@
       (case (car expr)
         ((lambda)
          (let ((params (cadr expr))
-               (body (caddr expr)))
+               (expr (caddr expr)))
            (lambda args
-             (eval body
+             (eval expr
                    (let loop ((params params) (args args) (env env))
                      (cond
                        ((null? params)
@@ -54,6 +54,13 @@
                  (loop (car rest) (cdr rest))))))
         ((set!)
          (update! (cadr expr) (E (caddr expr)) env))
+        ((letrec*)
+         (let ((env (fold-right (lambda (v e) (cons (cons v *undef*) e)) env (map car (cadr expr)))))
+           (let loop ((vals (map cadr (cadr expr))) (e env))
+             (unless (null? vals)
+               (set-cdr! (car e) (eval (car vals) env))
+               (loop (cdr vals) (cdr e))))
+           (eval (caddr expr) env)))
         (else
          (let ((proc (E (car expr))))
            (apply proc (map E (cdr expr)))))))
