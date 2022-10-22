@@ -68,13 +68,12 @@
       expr)))
 
  (define (lookup var env)
-   (cond
-     ((assq var env) => (lambda (p)
-                          (let ((val (cdr p)))
-                            (when (undef? val)
-                              (error 'core-eval "undefined variable" var))
-                            val)))
-     (else (symbol-value var))))
+   (let ((val (cond
+                ((assq var env) => cdr)
+                (else (symbol-value var)))))
+     (when (undef? val)
+       (error 'core-eval "unbound variable" var))
+     val))
 
  (define (update! var val env)
    (cond
