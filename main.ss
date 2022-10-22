@@ -3,8 +3,12 @@
 (import
  (rnrs)
  (monkey eval)
- (monkey expand))
+ (monkey expand)
+ )
 
+(expand-library '(library (test) (export) (import)))
+
+#|
 (let loop ()
   (display "$ ")
   (let ((expr (read)))
@@ -18,3 +22,4 @@
                        (newline))
                      results))))
       (loop))))
+|#
