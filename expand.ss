@@ -15,7 +15,8 @@
    (if (and (list-4+? form) (eq? (car form) 'library))
        (let-values (((name version) (parse-library-name (cadr form))))
          (parse-library-exports (caddr form))
-         (parse-imports (cadddr form) 'expand-library)
+         (write (parse-imports (cadddr form) 'expand-library))
+         (newline)
          (expand-body 'library (cddddr form))
          'todo)
        (error 'expand-library "expected library form")))
@@ -55,9 +56,36 @@
  
  (define (parse-imports spec who)
    (if (and (list-1+? spec) (eq? (car spec) 'import))
-       'todo
+       (map parse-import-spec (cdr spec))
        (error who "expected library imports")))
 
+ (define (parse-import-spec spec)
+   (if (and (list-2+? spec) (eq? (car spec) 'for))
+       (let-values (((libs filters) (parse-import-set (cadr spec))))
+         (list libs filters (parse-import-levels (cddr spec))))
+       (let-values (((libs filters) (parse-import-set spec)))
+         (list libs filters '(0)))))
+
+ (define (parse-import-levels levels)
+   (unify < = (map parse-import-level levels)))
+
+ (define (parse-import-level level)
+   (cond
+     ((eq? level 'run)
+      0)
+     ((eq? level 'expand)
+      1)
+     ((and (list-2? level)
+           (eq? (car level) 'meta)
+           (integer? (cadr level))
+           (exact? (cadr level)))
+      (cadr level))
+     (else
+      (error 'import "invalid import level" level))))
+
+ (define (parse-import-set set)
+   (values 'todo 'todo))
+ 
  (define (expand-body type forms)
    'todo)
  
@@ -71,6 +99,19 @@
  ;;; utilities
  ;;;
 
+ (define (unify lt eq items)
+   (let loop ((items (list-sort lt items)))
+     (cond
+       ((not (list-2+? items))
+        items)
+       ((eq (car items) (cadr items))
+        (loop (cdr items)))
+       (else
+        (let ((rest (loop (cdr items))))
+          (if (eq? rest (cdr items))
+              items
+              (cons (car items) rest)))))))
+ 
  (define (list-1? x) (and (pair? x) (null? (cdr x))))
  (define (list-2? x) (and (pair? x) (list-1? (cdr x))))
  (define (list-3? x) (and (pair? x) (list-2? (cdr x))))
