@@ -84,7 +84,28 @@
       (error 'import "invalid import level" level))))
 
  (define (parse-import-set set)
-   (values 'todo 'todo))
+   (define (binding? x) (and (list-2? x) (symbol? (car x)) (symbol? (cadr x))))
+   (let loop ((set set) (filters '()))
+     (cond
+       ((and (list-2? set) (eq? (car set) 'library))
+        (values (parse-library-ref (cadr set)) filters))
+       ((and (list-1+? set) (eq? (car set) 'primitives) (for-all symbol? (cdr set)))
+        (values 'todo filters))
+       ((and (list-2+? set) (eq? (car set) 'only) (for-all symbol? (cddr set)))
+        (loop (cadr set) (cons (cons 'only (cddr set)) filters)))
+       ((and (list-2+? set) (eq? (car set) 'except) (for-all symbol? (cddr set)))
+        (loop (cadr set) (cons (cons 'except (cddr set)) filters)))
+       ((and (list-3? set) (eq? (car set) 'prefix) (symbol? (caddr set)))
+        (loop (cadr set) (cons (cons 'prefix (caddr set)) filters)))
+       ((and (list-2+? set) (eq? (car set) 'rename) (for-all binding? (cddr set)))
+        (loop (cadr set) (cons (cons 'rename (cddr set)) filters)))
+       ((and (pair? set) (memq (car set) '(library primitives only except prefix rename for)))
+        (error 'import "invalid import set" set))
+       (else
+        (values (parse-library-ref set) filters)))))
+
+ (define (parse-library-ref ref)
+   'todo)
  
  (define (expand-body type forms)
    'todo)
@@ -99,6 +120,7 @@
  ;;; utilities
  ;;;
 
+ ;; sort a list and remove deuplicates
  (define (unify lt eq items)
    (let loop ((items (list-sort lt items)))
      (cond
