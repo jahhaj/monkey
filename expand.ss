@@ -2,7 +2,7 @@
 
 (library
  (monkey expand)
- (export expand-library expand)
+ (export expand-module expand-library expand)
  (import
   (rnrs)
   (srfi parameters)
@@ -11,6 +11,33 @@
  (define *env* (make-parameter 'todo))
  (define *phase* (make-parameter 0))
 
+ (define expand-module
+   (case-lambda
+     ((path)
+      (expand-module path #f))
+     ((path lib-only?)
+      (let ((forms (read-file path)))
+        (if (null? forms)
+            (error 'expand-module "no content in file" path)
+            (cond
+              ((and (list-1+? (car forms)) (eq? (caar forms) 'library))
+               (if (list-1? forms)
+                   (expand-library (car forms))
+                   (error 'expand-module "excess content in library module" path)))
+              ((and (list-1+? (car forms)) (eq? (caar forms) 'import) (not lib-only?))
+               'todo)
+              (else
+               (error 'expand-module "expected program or library form in file" path))))))))
+
+ (define (read-file path)
+   (with-input-from-file path
+     (lambda ()
+       (let loop ((forms '()))
+         (let ((form (read)))
+           (if (eof-object? form)
+               (reverse forms)
+               (loop (cons form forms))))))))
+ 
  (define (expand-library form)
    (if (and (list-4+? form) (eq? (car form) 'library))
        (let-values (((name version) (parse-library-name (cadr form))))
@@ -32,9 +59,10 @@
             (let-values (((name version) (loop (cdr spec))))
               (values (cons (car spec) name) version)))
            ((list-1? spec)
-            (if (and (list? spec) (for-all integer? spec) (for-all exact? spec) (not (exists negative? spec)))
-                (values '() (car spec))
-                (error 'expand-library "invalid library version" spec)))
+            (let ((version (car spec)))
+              (if (and (list? version) (for-all integer? version) (for-all exact? version) (not (exists negative? version)))
+                  (values '() version)
+                  (error 'expand-library "invalid library version" version))))
            (else
             (wrong))))
        (wrong)))

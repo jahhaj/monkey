@@ -6,7 +6,7 @@
  (monkey expand)
  )
 
-(expand-library '(library (test) (export) (import (prefix (only (rnrs) cons) std))))
+(expand-module "lib/rnrs/base.ss")
 
 #|
 (let loop ()
