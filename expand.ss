@@ -96,7 +96,7 @@
        ((and (list-2+? set) (eq? (car set) 'except) (for-all symbol? (cddr set)))
         (loop (cadr set) (cons (cons 'except (cddr set)) filters)))
        ((and (list-3? set) (eq? (car set) 'prefix) (symbol? (caddr set)))
-        (loop (cadr set) (cons (cons 'prefix (caddr set)) filters)))
+        (loop (cadr set) (cons (list 'prefix (caddr set)) filters)))
        ((and (list-2+? set) (eq? (car set) 'rename) (for-all binding? (cddr set)))
         (loop (cadr set) (cons (cons 'rename (cddr set)) filters)))
        ((and (pair? set) (memq (car set) '(library primitives only except prefix rename for)))

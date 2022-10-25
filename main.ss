@@ -6,7 +6,7 @@
  (monkey expand)
  )
 
-(expand-library '(library (test) (export) (import (only (rnrs) cons))))
+(expand-library '(library (test) (export) (import (prefix (only (rnrs) cons) std))))
 
 #|
 (let loop ()
