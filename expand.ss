@@ -6,6 +6,7 @@
  (import
   (rnrs)
   (srfi parameters)
+  (monkey utility)
   )
 
  (define *env* (make-parameter 'todo))
@@ -143,33 +144,5 @@
 
  (define (source->stx x)
    'todo)
- 
- ;;;
- ;;; utilities
- ;;;
-
- ;; sort a list and remove deuplicates
- (define (unify lt eq items)
-   (let loop ((items (list-sort lt items)))
-     (cond
-       ((not (list-2+? items))
-        items)
-       ((eq (car items) (cadr items))
-        (loop (cdr items)))
-       (else
-        (let ((rest (loop (cdr items))))
-          (if (eq? rest (cdr items))
-              items
-              (cons (car items) rest)))))))
- 
- (define (list-1? x) (and (pair? x) (null? (cdr x))))
- (define (list-2? x) (and (pair? x) (list-1? (cdr x))))
- (define (list-3? x) (and (pair? x) (list-2? (cdr x))))
- (define (list-4? x) (and (pair? x) (list-3? (cdr x))))
-
- (define (list-1+? x) (and (pair? x) (list? (cdr x))))
- (define (list-2+? x) (and (pair? x) (list-1+? (cdr x))))
- (define (list-3+? x) (and (pair? x) (list-2+? (cdr x))))
- (define (list-4+? x) (and (pair? x) (list-3+? (cdr x))))
  
  )
