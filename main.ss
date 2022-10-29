@@ -1,12 +1,12 @@
 #!r6rs
 
 (import
- (rnrs)
+ (rnrs base)
  (monkey eval)
  (monkey expand)
  )
 
-(expand-module "lib/rnrs/base.ss")
+(expand-program '((import (rnrs base)) (cons 1 2)))
 
 #|
 (let loop ()

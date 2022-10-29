@@ -2,9 +2,15 @@
 
 (library
  (monkey utility)
- (export gensym unify list-1? list-2? list-3? list-4? list-1+? list-2+? list-3+? list-4+?)
+ (export gensym
+         unify
+         list-1? list-2? list-3? list-4? list-1+? list-2+? list-3+? list-4+?
+         exact-integer? exact-nonnegative-integer?)
  (import
-  (rnrs)
+  (rnrs arithmetic bitwise)
+  (rnrs base)
+  (rnrs control)
+  (rnrs sorting)
   (only (racket base) random)
   )
 
@@ -35,12 +41,13 @@
           (string->symbol (string-append prefix (base64-encode (make-uuid))))))))
  
  ;; sort a list and remove deuplicates
- (define (unify lt eq items)
-   (let loop ((items (list-sort lt items)))
+ (define (unify < items)
+   (define (= x y) (not (or (< x y) (< y x))))
+   (let loop ((items (list-sort < items)))
      (cond
        ((not (list-2+? items))
         items)
-       ((eq (car items) (cadr items))
+       ((= (car items) (cadr items))
         (loop (cdr items)))
        (else
         (let ((rest (loop (cdr items))))
@@ -58,9 +65,7 @@
  (define (list-3+? x) (and (pair? x) (list-2+? (cdr x))))
  (define (list-4+? x) (and (pair? x) (list-3+? (cdr x))))
 
- (write (gensym)) (newline)
- (write (gensym)) (newline)
- (write (gensym)) (newline)
- (write (gensym)) (newline)
- 
+ (define (exact-integer? x) (and (integer? x) (exact? x)))
+ (define (exact-nonnegative-integer? x) (and (exact-integer? x) (not (negative? x))))
+
  )

@@ -2,13 +2,20 @@
 
 (library
  (monkey expand)
- (export expand-module expand-library expand)
+ (export expand-module expand-program expand-library expand)
  (import
-  (rnrs)
+  (rnrs base)
+  (rnrs control)
+  (rnrs io simple)
+  (rnrs lists)
+  (rnrs records syntactic)
   (srfi parameters)
+  (monkey library)
   (monkey utility)
   )
 
+ (define-record-type identifier (fields name colours envs disp))
+ 
  (define *env* (make-parameter 'todo))
  (define *phase* (make-parameter 0))
 
@@ -26,7 +33,7 @@
                    (expand-library (car forms))
                    (error 'expand-module "excess content in library module" path)))
               ((and (list-1+? (car forms)) (eq? (caar forms) 'import) (not lib-only?))
-               'todo)
+               (expand-program forms))
               (else
                (error 'expand-module "expected program or library form in file" path))))))))
 
@@ -49,6 +56,14 @@
          'todo)
        (error 'expand-library "expected library form")))
 
+ (define (expand-program forms)
+   (if (and (list-1+? forms) (list-1+? (car forms)) (eq? (caar forms) 'import))
+       (begin
+         (write (parse-imports (car forms) 'expand-program))
+         (newline)
+         (expand-body 'program (cdr forms)))
+       (error 'expand-program "expected import form")))
+         
  (define (parse-library-name spec)
    (define (wrong) (error 'expand-library "invalid library name" spec))
    (if (and (list-1+? spec) (symbol? (car spec)))
@@ -61,7 +76,7 @@
               (values (cons (car spec) name) version)))
            ((list-1? spec)
             (let ((version (car spec)))
-              (if (and (list? version) (for-all integer? version) (for-all exact? version) (not (exists negative? version)))
+              (if (and (list? version) (for-all exact-nonnegative-integer? version))
                   (values '() version)
                   (error 'expand-library "invalid library version" version))))
            (else
@@ -77,9 +92,9 @@
    (define (binding? x) (and (list-2? x) (symbol? (car x)) (symbol? (cadr x))))
    (cond
      ((symbol? spec)
-      (cons spec (source->stx spec)))
+      (cons spec (source->syntax spec)))
      ((and (list-1+? spec) (eq? (car spec 'rename)) (for-all binding? (cdr spec)))
-      (map (lambda (x y) (cons y (source->stx x))) (cdr spec)))
+      (map (lambda (x y) (cons y (source->syntax x))) (cdr spec)))
      (else
       (error 'expand-library "invalid export" spec))))
  
@@ -96,7 +111,7 @@
          (list libs filters '(0)))))
 
  (define (parse-import-levels levels)
-   (unify < = (map parse-import-level levels)))
+   (unify < (map parse-import-level levels)))
 
  (define (parse-import-level level)
    (cond
@@ -104,10 +119,7 @@
       0)
      ((eq? level 'expand)
       1)
-     ((and (list-2? level)
-           (eq? (car level) 'meta)
-           (integer? (cadr level))
-           (exact? (cadr level)))
+     ((and (list-2? level) (eq? (car level) 'meta) (exact-integer? (cadr level)))
       (cadr level))
      (else
       (error 'import "invalid import level" level))))
@@ -118,8 +130,6 @@
      (cond
        ((and (list-2? set) (eq? (car set) 'library))
         (values (parse-library-ref (cadr set)) filters))
-       ((and (list-1+? set) (eq? (car set) 'primitives) (for-all symbol? (cdr set)))
-        (values 'todo filters))
        ((and (list-2+? set) (eq? (car set) 'only) (for-all symbol? (cddr set)))
         (loop (cadr set) (cons (cons 'only (cddr set)) filters)))
        ((and (list-2+? set) (eq? (car set) 'except) (for-all symbol? (cddr set)))
@@ -128,21 +138,100 @@
         (loop (cadr set) (cons (list 'prefix (caddr set)) filters)))
        ((and (list-2+? set) (eq? (car set) 'rename) (for-all binding? (cddr set)))
         (loop (cadr set) (cons (cons 'rename (cddr set)) filters)))
-       ((and (pair? set) (memq (car set) '(library primitives only except prefix rename for)))
+       ((and (pair? set) (memq (car set) '(library only except prefix rename for)))
         (error 'import "invalid import set" set))
        (else
         (values (parse-library-ref set) filters)))))
 
  (define (parse-library-ref ref)
+   (define (wrong) (error 'import "invalid library reference" ref))
+   (if (and (list-1+? ref) (symbol? (car ref)))
+       (let-values (((name version-ok?)
+                     (let loop ((ref ref))
+                       (cond
+                         ((null? ref)
+                          (values '() (lambda (v) #t)))
+                         ((symbol? (car ref))
+                          (let-values (((name version-ok?) (loop (cdr ref))))
+                            (values (cons (car ref) name) version-ok?)))
+                         ((null? (cdr ref))
+                          (values '() (parse-library-version-ref (car ref))))
+                         (else
+                          (wrong))))))
+         (let ((lib (find-library name)))
+           (if lib
+               (if (version-ok? (library-version lib))
+                   lib
+                   (error 'import "incorrect library version"))
+               'todo)))
+       (wrong)))
+
+ (define (parse-library-version-ref ref)
    'todo)
- 
+
  (define (expand-body type forms)
    'todo)
  
  (define (expand expr)
    ''todo)
 
- (define (source->stx x)
-   'todo)
+ (define source->syntax
+   (let ((toplevel-id (make-identifier 'toplevel '() '() 0)))
+     (lambda (x)
+       (datum->syntax toplevel-id x))))
+
+ (define (datum->syntax tid x)
+   (let ((colours (identifier-colours tid))
+         (envs (identifier-envs tid))
+         (disp (identifier-disp tid)))
+     (sexpr-map (lambda (leaf)
+                  (if (symbol? leaf)
+                      (make-identifier leaf colours envs disp)
+                      leaf))
+                x)))
+
+ (define (syntax->datum x)
+   (sexpr-map (lambda (leaf)
+                (cond
+                  ((identifier? leaf)
+                   (identifier-name leaf))
+                  ((symbol? leaf)
+                   (assertion-violation 'syntax->datum "symbol in syntax object"))
+                  (else
+                   leaf)))
+              x))
  
+ (define (sexpr-map proc x)
+   (let loop ((x x))
+     (cond
+       ((null? x)
+        '())
+       ((pair? x)
+        (let ((new-car (loop (car x)))
+              (new-cdr (loop (cdr x))))
+          (if (and (eq? new-car (car x)) (eq? new-cdr (cdr x)))
+              x
+              (cons new-car new-cdr))))
+       ((vector? x)
+        (let* ((old (vector->list x))
+               (new (loop old)))
+          (if (eq? new old)
+              x
+              (list->vector new))))
+       (else
+        (proc x)))))
+
+ (define gen-label
+   (case-lambda
+     (() (gensym "lbl:"))
+     ((x) (gensym))))
+ 
+ ;; create a mini rnrs base library
+ (let* ((prims '(cons car cdr))
+        (exports (map (lambda (p) (cons p p)) prims))
+        (bindings (map (lambda (p) (make-binding 'variable #f '(0))) prims))
+        (lib (make-library '(rnrs base) '(6) exports bindings)))
+   (install-library! lib))
+ 
+   
  )
