@@ -92,9 +92,9 @@
    (define (binding? x) (and (list-2? x) (symbol? (car x)) (symbol? (cadr x))))
    (cond
      ((symbol? spec)
-      (cons spec (source->syntax spec)))
+      (list (cons spec (source->syntax spec))))
      ((and (list-1+? spec) (eq? (car spec 'rename)) (for-all binding? (cdr spec)))
-      (map (lambda (x y) (cons y (source->syntax x))) (cdr spec)))
+      (map (lambda (b) (cons (cadr b) (source->syntax (car b)))) (cdr spec)))
      (else
       (error 'expand-library "invalid export" spec))))
  
